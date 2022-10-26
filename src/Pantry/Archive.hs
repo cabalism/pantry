@@ -345,7 +345,7 @@ foldTar loc accum0 f = do
         _ -> throwIO exc
     pure $
       (\met -> MetaEntry
-        { mePath = Tar.getFileInfoPath fi
+          { mePath = removeInitialDotSlash . Tar.getFileInfoPath $ fi
         , meType = met
         })
       <$> mmet
@@ -355,6 +355,10 @@ data SimpleEntry = SimpleEntry
   , seType :: !FileType
   }
   deriving Show
+
+removeInitialDotSlash :: FilePath -> FilePath
+removeInitialDotSlash filename = fromString . T.unpack . fromMaybe filenameText .  T.stripPrefix "./" $ filenameText
+  where filenameText = T.pack filename
 
 -- | Attempt to parse the contents of the given archive in the given subdir into
 -- a 'Tree'. This will not consult any caches. It will ensure that:
@@ -380,7 +384,7 @@ parseArchive rpli archive fp = do
             logDebug $ "parseArchive of " <> display at <> ": " <> displayShow e
             getFiles ats
           Right files -> pure (at, Map.fromList $ map (mePath &&& id) $ files [])
-  (at :: ArchiveType, files :: Map FilePath MetaEntry) <- getFiles [minBound..maxBound]
+  (at :: ArchiveType, files :: Map FilePath MetaEntry) <- second (Map.mapKeys removeInitialDotSlash) <$> getFiles [minBound..maxBound]
   let toSimple :: FilePath -> MetaEntry -> Either String (Map FilePath SimpleEntry)
       toSimple key me =
         case meType me of
@@ -475,7 +479,7 @@ parseArchive rpli archive fp = do
                   pure $ Map.insert (mePath me) (blobKey, blobId) m
                 else pure m
           tree :: CachedTree <- fmap (CachedTreeMap . Map.fromList) $ for safeFiles $ \(sfp, se) ->
-            case Map.lookup (seSource se) blobs of
+            case Map.lookup (removeInitialDotSlash . seSource $ se) blobs of
               Nothing ->
                 error $ "Impossible: blob not found for: " ++ seSource se
               Just (blobKey, blobId) ->
