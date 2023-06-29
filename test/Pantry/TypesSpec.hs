@@ -182,6 +182,7 @@ spec = do
       warnings2 `shouldBe` []
       reparsed' <- resolvePaths Nothing reparsed
       reparsed' `shouldBe` pli
+
     it "parseHackageText parses" $ do
       let txt =
               "persistent-2.8.2@sha256:df118e99f0c46715e932fe82d787fc09689d87898f3a8b13f5954d25af6b46a1,5058"
@@ -191,12 +192,17 @@ spec = do
       sha <- case hsha of
         Right sha' -> pure sha'
         _ -> fail "parseHackagetext: failed decoding the sha256"
-      let Right (pkgIdentifier, blobKey) = parseHackageText txt
+
+      (pkgIdentifier, blobKey) <- case parseHackageText txt of
+        Right x -> pure x
+        Left err -> fail $ "parseHackageText failed: " ++ show err
+
       blobKey `shouldBe` (BlobKey sha (FileSize 5058))
       pkgIdentifier `shouldBe`
           PackageIdentifier
               (mkPackageName "persistent")
               (mkVersion [2, 8, 2])
+
     it "roundtripping a PLIRepo" $ do
       WithJSONWarnings unresolvedPli warnings <- Yaml.decodeThrow samplePLIRepo2
       warnings `shouldBe` []
