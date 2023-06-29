@@ -381,79 +381,7 @@ parseArchive rpli archive fp = do
             getFiles ats
           Right files -> pure (at, Map.fromList $ map (mePath &&& id) $ files [])
   (at :: ArchiveType, files :: Map FilePath MetaEntry) <- getFiles [minBound..maxBound]
-  let toSimple :: FilePath -> MetaEntry -> Either String (Map FilePath SimpleEntry)
-      toSimple key me =
-        case meType me of
-          METNormal ->
-            Right $ Map.singleton key $ SimpleEntry (mePath me) FTNormal
-          METExecutable ->
-            Right $ Map.singleton key $ SimpleEntry (mePath me) FTExecutable
-          METLink relDest -> do
-            case relDest of
-              '/':_ -> Left $ concat
-                         [ "File located at "
-                         , show $ mePath me
-                         , " is a symbolic link to absolute path "
-                         , relDest
-                         ]
-              _ -> Right ()
-            dest0 <-
-              case makeTarRelative (mePath me) relDest of
-                Left e -> Left $ concat
-                  [ "Error resolving relative path "
-                  , relDest
-                  , " from symlink at "
-                  , mePath me
-                  , ": "
-                  , e
-                  ]
-                Right x -> Right x
-            dest <-
-              case normalizeParents dest0 of
-                Left e -> Left $ concat
-                  [ "Invalid symbolic link from "
-                  , mePath me
-                  , " to "
-                  , relDest
-                  , ", tried parsing "
-                  , dest0
-                  , ": "
-                  , e
-                  ]
-                Right x -> Right x
-            -- Check if it's a symlink to a file
-            case Map.lookup dest files of
-              Nothing ->
-                -- Check if it's a symlink to a directory
-                case findWithPrefix dest files of
-                  [] -> Left $
-                             "Symbolic link dest not found from "
-                          ++ mePath me
-                          ++ " to "
-                          ++ relDest
-                          ++ ", looking for "
-                          ++ dest
-                          ++ ".\n"
-                          ++ "This may indicate that the source is a git \
-                             \archive which uses git-annex.\n"
-                          ++ "See https://github.com/commercialhaskell/stack/issues/4579 \
-                             \for further information."
-                  pairs ->
-                    fmap fold $ for pairs $ \(suffix, me') -> toSimple (key ++ '/' : suffix) me'
-              Just me' ->
-                case meType me' of
-                  METNormal ->
-                    Right $ Map.singleton key $ SimpleEntry dest FTNormal
-                  METExecutable ->
-                    Right $ Map.singleton key $ SimpleEntry dest FTExecutable
-                  METLink _ ->
-                    Left $
-                         "Symbolic link dest cannot be a symbolic link, from "
-                      ++ mePath me
-                      ++ " to "
-                      ++ relDest
-
-  case fold <$> Map.traverseWithKey toSimple files of
+  case fold <$> Map.traverseWithKey (toSimple files) files of
     Left e -> throwIO $ UnsupportedTarball loc $ T.pack e
     Right files1 -> do
       let files2 = stripCommonPrefix $ Map.toList files1
@@ -523,6 +451,82 @@ parseArchive rpli archive fp = do
             , packageCabalEntry = packageCabal
             , packageIdent = ident
             }, tree)
+
+toSimple ::
+     Map FilePath MetaEntry
+  -> String
+  -> MetaEntry
+  -> Either String (Map String SimpleEntry)
+toSimple files key me =
+  case meType me of
+    METNormal ->
+      Right $ Map.singleton key $ SimpleEntry (mePath me) FTNormal
+    METExecutable ->
+      Right $ Map.singleton key $ SimpleEntry (mePath me) FTExecutable
+    METLink relDest -> do
+      case relDest of
+        '/':_ -> Left $ concat
+                    [ "File located at "
+                    , show $ mePath me
+                    , " is a symbolic link to absolute path "
+                    , relDest
+                    ]
+        _ -> Right ()
+      dest0 <-
+        case makeTarRelative (mePath me) relDest of
+          Left e -> Left $ concat
+            [ "Error resolving relative path "
+            , relDest
+            , " from symlink at "
+            , mePath me
+            , ": "
+            , e
+            ]
+          Right x -> Right x
+      dest <-
+        case normalizeParents dest0 of
+          Left e -> Left $ concat
+            [ "Invalid symbolic link from "
+            , mePath me
+            , " to "
+            , relDest
+            , ", tried parsing "
+            , dest0
+            , ": "
+            , e
+            ]
+          Right x -> Right x
+      -- Check if it's a symlink to a file
+      case Map.lookup dest files of
+        Nothing ->
+          -- Check if it's a symlink to a directory
+          case findWithPrefix dest files of
+            [] -> Left $
+                        "Symbolic link dest not found from "
+                    ++ mePath me
+                    ++ " to "
+                    ++ relDest
+                    ++ ", looking for "
+                    ++ dest
+                    ++ ".\n"
+                    ++ "This may indicate that the source is a git \
+                        \archive which uses git-annex.\n"
+                    ++ "See https://github.com/commercialhaskell/stack/issues/4579 \
+                        \for further information."
+            pairs ->
+              fmap fold $ for pairs $ \(suffix, me') -> toSimple files (key ++ '/' : suffix) me'
+        Just me' ->
+          case meType me' of
+            METNormal ->
+              Right $ Map.singleton key $ SimpleEntry dest FTNormal
+            METExecutable ->
+              Right $ Map.singleton key $ SimpleEntry dest FTExecutable
+            METLink _ ->
+              Left $
+                    "Symbolic link dest cannot be a symbolic link, from "
+                ++ mePath me
+                ++ " to "
+                ++ relDest
 
 -- | Find all of the files in the Map with the given directory as a prefix.
 -- Directory is given without trailing slash. Returns the suffix after stripping
