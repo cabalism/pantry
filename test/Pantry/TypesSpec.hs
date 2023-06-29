@@ -19,7 +19,7 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Pantry
 import           Pantry.Internal
-                   ( Tree (..), TreeEntry (..), mkSafeFilePath, parseTree
+                   ( Tree (..), TreeEntry (..), parseTree
                    , renderTree
                    )
 import           Pantry.Internal.AesonExtended
