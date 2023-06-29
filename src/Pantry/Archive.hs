@@ -425,6 +425,7 @@ parseArchive rpli archive fp = do
                   ]
                 Right x -> Right x
             -- Check if it's a symlink to a file
+            traceM $ "SYMLINK-CHECK: " <> T.pack (show (key, dest))
             case Map.lookup dest files of
               Nothing ->
                 -- Check if it's a symlink to a directory
