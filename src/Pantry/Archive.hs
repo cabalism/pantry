@@ -381,7 +381,8 @@ parseArchive rpli archive fp = do
             getFiles ats
           Right files -> pure (at, Map.fromList $ map (mePath &&& id) $ files [])
   (at :: ArchiveType, files :: Map FilePath MetaEntry) <- getFiles [minBound..maxBound]
-  case fold <$> Map.traverseWithKey (toSimple files) files of
+  let simplified :: Either String (Map String (Map String SimpleEntry)) = Map.traverseWithKey (toSimple files) files
+  case fold <$> simplified of
     Left e -> throwIO $ UnsupportedTarball loc $ T.pack e
     Right files1 -> do
       let files2 = stripCommonPrefix $ Map.toList files1
