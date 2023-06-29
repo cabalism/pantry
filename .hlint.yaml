@@ -1,0 +1,8 @@
+# Warnings currently triggered by your code
+- ignore: {name: "Move brackets to avoid $"} # 2 hints
+- ignore: {name: "Redundant bracket"} # 4 hints
+- ignore: {name: "Use ++"} # 1 hint
+- ignore: {name: "Use camelCase"} # 6 hints
+- ignore: {name: "Use fewer imports"} # 1 hint
+- ignore: {name: "Use lambda-case"} # 4 hints
+- ignore: {name: "Use newtype instead of data"} # 1 hint
