@@ -503,6 +503,7 @@ toSimple files key me =
       case Map.lookup dest files of
         Nothing ->
           -- Check if it's a symlink to a directory
+          traceShow (dest, files) $
           case findWithPrefix dest files of
             [] -> Left $
                         "Symbolic link dest not found from "
